@@ -70,6 +70,25 @@ with st.sidebar:
         st.caption(f"Variables en formato indexado: " + ", ".join([f"x{i}" for i in range(n_vars)]))
 
     func_txt = st.text_input("Función objetivo f", value=default_func)
+    
+    # --- NUEVO APARTADO: Instructivo desplegable de sintaxis matemática ---
+    with st.expander("📖 Guía de Escritura Matemática"):
+        st.markdown("""
+        Para que el motor analítico procese correctamente tu función, utiliza la siguiente estructura estándar:
+        
+        | Operación / Función | Entrada en Texto | Ejemplo Práctico |
+        | :--- | :--- | :--- |
+        | **Multiplicación** | Siempre usa `*` | `4*x` *(en vez de 4x)* |
+        | **Potencias / Exponentes** | Usa `**` (o `^`) | `x**2` o `x^2` |
+        | **Raíz Cuadrada** | `sqrt(x)` | `sqrt(x**2 + y**2)` |
+        | **Número de Euler ($e^x$)** | `exp(x)` | `exp(-x)` |
+        | **Logaritmo Natural** | `log(x)` | `log(x) + y` |
+        | **Trigonométricas** | `sin(x)`, `cos(x)`, `tan(x)` | `sin(x) * cos(y)` |
+        
+        *⚠️ **Nota Importante:** Recuerda marcar explícitamente las multiplicaciones. Escribir `2x` arrojará un error; la forma correcta es `2*x`.*
+        """)
+    st.markdown("---")
+    
     metodo_sel = st.selectbox("Algoritmo", ["Descenso de Gradiente", "Método de Newton", "Gradiente Conjugado (FR)"])
     init_txt = st.text_input("Punto de partida (separado por comas)", value=default_init)
     
@@ -102,17 +121,16 @@ if btn and f_n:
             metodo_sel, f_n, g_n, h_n, x_init, tol_val, int(max_it), beta_val, sigma_val
         )
         
-        # BLINDAJE EXTREMO: Forzamos la evaluación numérica real extrayendo los componentes nativos
+        # Forzamos la evaluación numérica real extrayendo los componentes nativos
         try:
             res_raw = f_n(*x_opt)
-            if hasattr(res_raw, 'evalf'):  # Si quedó algún residuo de SymPy
+            if hasattr(res_raw, 'evalf'):
                 valor_optimo_puro = float(res_raw.evalf())
             elif isinstance(res_raw, (np.ndarray, list)):
                 valor_optimo_puro = float(np.array(res_raw).flatten()[0])
             else:
                 valor_optimo_puro = float(res_raw)
         except Exception:
-            # Fallback secundario usando el último punto registrado en la trayectoria numérica
             valor_optimo_puro = float(f_n(*camino[-1]))
 
         # Despliegue de métricas principales exigidas por el enunciado
