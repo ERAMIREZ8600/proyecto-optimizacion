@@ -58,20 +58,16 @@ with st.sidebar:
     
     if n_vars == 1:
         default_func = "x**2 - 4*x + 3"
-        default_init = "10.0"
         st.caption("Variable aceptada: x")
     elif n_vars == 2:
         default_func = "x**2 + y**2 + x*y"
-        default_init = "4.0, 4.0"
         st.caption("Variables aceptadas de manera estándar: x, y")
     else:
         default_func = " + ".join([f"x{i}**2" for i in range(n_vars)])
-        default_init = ", ".join(["4.0"] * n_vars)
         st.caption(f"Variables en formato indexado: " + ", ".join([f"x{i}" for i in range(n_vars)]))
 
     func_txt = st.text_input("Función objetivo f", value=default_func)
     
-    # --- NUEVO APARTADO: Instructivo desplegable de sintaxis matemática ---
     with st.expander("📖 Guía de Escritura Matemática"):
         st.markdown("""
         Para que el motor analítico procese correctamente tu función, utiliza la siguiente estructura estándar:
@@ -90,7 +86,29 @@ with st.sidebar:
     st.markdown("---")
     
     metodo_sel = st.selectbox("Algoritmo", ["Descenso de Gradiente", "Método de Newton", "Gradiente Conjugado (FR)"])
-    init_txt = st.text_input("Punto de partida (separado por comas)", value=default_init)
+    
+    # --- MODIFICACIÓN: Punto de partida con recuadros separados independientes ---
+    st.subheader("Punto de Partida (x₀)")
+    x_init = []
+    
+    # Creamos subcolumnas para organizar los inputs numéricos de forma horizontal o compacta
+    columnas_puntos = st.columns(min(n_vars, 3)) # Agrupa de a 3 recuadros por fila
+    
+    for i in range(n_vars):
+        # Determinar la etiqueta visual de cada recuadro
+        if n_vars == 1:
+            label_coor = "Coord. X"
+        elif n_vars == 2:
+            label_coor = f"Coord. {['X', 'Y'][i]}"
+        else:
+            label_coor = f"Coord. x{i}"
+            
+        # Ubicar dinámicamente cada input en su columna respectiva
+        with columnas_puntos[i % 3]:
+            val_coor = st.number_input(label_coor, value=4.0, key=f"init_val_{i}", step=0.5, format="%.2f")
+            x_init.append(val_coor)
+            
+    st.markdown("---")
     
     st.subheader("Condiciones de Wolfe")
     beta_val = st.slider("Beta (Wolfe I - Armijo)", 1e-4, 0.3, 1e-4, format="%.4f")
@@ -101,12 +119,6 @@ with st.sidebar:
     max_it = st.number_input("Número máximo de iteraciones", value=100, min_value=1, max_value=1000)
     
     btn = st.button("🚀 Ejecutar Análisis")
-
-# Parsear el punto de partida ingresado como texto a una lista de flotantes
-try:
-    x_init = [float(i.strip()) for i in init_txt.split(",")]
-except Exception:
-    x_init = [4.0] * n_vars
 
 # Compilación y preparación analítica de las herramientas simbólicas
 f_n, g_n, h_n = preparar_herramientas(func_txt, n_vars)
