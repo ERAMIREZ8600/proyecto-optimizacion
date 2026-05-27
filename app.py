@@ -7,27 +7,23 @@ from engine import preparar_herramientas, ejecutar_optimizacion
 # 1. Configuración de la página estilo Dashboard Premium
 st.set_page_config(page_title="Optimization Dashboard", layout="wide")
 
-# 2. CSS para fijar el aspecto visual moderno (Look Skillset)
+# 2. CSS Adaptativo (Sin colores de fondo fijos para respetar el modo Dark/Light)
 st.markdown("""
     <style>
-    .stApp { background-color: #F8F9FB; }
-    section[data-testid="stSidebar"] {
-        background-color: #FFFFFF !important;
-        border-right: 1px solid #E6E9EF;
-    }
+    /* Estilización de tarjetas de métricas manteniendo el contraste adaptativo */
     div[data-testid="stMetric"] {
-        background-color: #FFFFFF;
         border-radius: 15px;
         padding: 20px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.02);
-        border: 1px solid #F0F2F6;
+        border: 1px solid rgba(128, 128, 128, 0.2);
     }
+    /* Estilización de los contenedores de gráficos */
     .stPlotlyChart {
-        background-color: #FFFFFF;
         border-radius: 15px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.02);
         padding: 10px;
     }
+    /* Botón principal adaptado al estilo Skillset */
     .stButton>button {
         width: 100%;
         border-radius: 10px;
@@ -87,15 +83,12 @@ with st.sidebar:
     
     metodo_sel = st.selectbox("Algoritmo", ["Descenso de Gradiente", "Método de Newton", "Gradiente Conjugado (FR)"])
     
-    # --- MODIFICACIÓN: Punto de partida con recuadros separados independientes ---
     st.subheader("Punto de Partida (x₀)")
     x_init = []
     
-    # Creamos subcolumnas para organizar los inputs numéricos de forma horizontal o compacta
-    columnas_puntos = st.columns(min(n_vars, 3)) # Agrupa de a 3 recuadros por fila
-    
+    # Subcolumnas organizadas para los inputs de los puntos iniciales
+    columnas_puntos = st.columns(min(n_vars, 3))
     for i in range(n_vars):
-        # Determinar la etiqueta visual de cada recuadro
         if n_vars == 1:
             label_coor = "Coord. X"
         elif n_vars == 2:
@@ -103,7 +96,6 @@ with st.sidebar:
         else:
             label_coor = f"Coord. x{i}"
             
-        # Ubicar dinámicamente cada input en su columna respectiva
         with columnas_puntos[i % 3]:
             val_coor = st.number_input(label_coor, value=4.0, key=f"init_val_{i}", step=0.5, format="%.2f")
             x_init.append(val_coor)
