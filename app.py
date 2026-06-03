@@ -384,7 +384,7 @@ if btn and f_n:
 
         # --- 🚀 MODIFICACIÓN FINAL: DETALLE DE BACKTRACKING ENRIQUECIDO ---
         st.markdown("---")
-        st.markdown("<h3 style='color: #1E293B;'>📋 DETALLE DE BACKTRACKING: AUDITORÍA DE FRONTERAS</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color: #1E293B;'>DETALLE DE BACKTRACKING: AUDITORÍA DE FRONTERAS</h3>", unsafe_allow_html=True)
         
         # Captura e indexación de los límites del vector numérico
         idx_inicio = 1 if len(camino) > 1 else 0
