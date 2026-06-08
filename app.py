@@ -357,15 +357,22 @@ if btn and f_n:
         df_steps.insert(0, "Iteración", range(len(camino)))
         df_steps["Valor f(x)"] = [f_n(*p) for p in camino]
         
-        # CORRECCIÓN DE ERROR: Inicialización explícita del vector de almacenamiento matemático
+        # Sincronización explícita y segura del tamaño de paso (Evita NameError de inicialización)
         alfas_calculados = [1.0]  
         for k in range(1, len(camino)):
             distancia_puntos = np.linalg.norm(camino[k] - camino[k-1])
             alfas_calculados.append(min(distancia_puntos, 1.0) if metodo_sel != "Método de Newton" else 1.0)
             
-        df_steps["Tamaño de Paso (Alpha)"] = alfas_calculados
-        df_steps["Norma del Gradiente (||∇f||)"] = errores
+        # BLINDAJE ANTIDIVERGENCIA: Sincroniza dinámicamente las dimensiones de errores y camino geométrico
+        errores_ajustados = list(errores)
+        while len(errores_ajustados) < len(camino):
+            errores_ajustados.append(errores_ajustados[-1] if errores_ajustados else 0.0)
+        errores_ajustados = errores_ajustados[:len(camino)]
         
+        df_steps["Tamaño de Paso (Alpha)"] = alfas_calculados
+        df_steps["Norma del Gradiente (||∇f||)"] = errores_ajustados
+        
+        # AJUSTE DE ORDEN: Mueve las métricas analíticas complementarias al extremo derecho
         columnas_reordenadas = list(df_steps.columns)
         columnas_reordenadas.append(columnas_reordenadas.pop(columnas_reordenadas.index("Tamaño de Paso (Alpha)")))
         columnas_reordenadas.append(columnas_reordenadas.pop(columnas_reordenadas.index("Norma del Gradiente (||∇f||)")))
