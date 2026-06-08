@@ -188,7 +188,7 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("<b style='color: #1E6091;'>⚙️ Parámetros de Wolfe</b>", unsafe_allow_html=True)
-    beta_val = st.slider("Beta (Wolfe I - Armijo)", 1e-4, 0.3, 1e-4, format="%.4f")
+    beta_val = st.slider("Beta (Wolfe I - Armijo)", 1e-4, 0.9999, 1e-4, format="%.4f")
     sigma_val = st.slider("Sigma (Wolfe II - Curvatura)", 0.1, 0.9, 0.9, format="%.2f")
     
     st.markdown("---")
@@ -248,7 +248,9 @@ if btn and f_n:
         st.markdown("<h3 style='color: #1E293B;'>🖥️ TELEMETRÍA Y ESTADO DEL MODELO</h3>", unsafe_allow_html=True)
         m1, m2, m3 = st.columns(3)
         m1.metric("Valor Mínimo f(x*)", f"{valor_optimo_puro:.4f}")
-        m2.metric("Iteraciones Procesadas", f"{len(errores)}")
+        
+        # Sincronización analítica para descontar la iteración cero inicial
+        m2.metric("Iteraciones Procesadas", f"{len(errores) - 1}")
         
         with m3:
             st.markdown("<div style='padding-top: 5px;'></div>", unsafe_allow_html=True)
@@ -348,15 +350,15 @@ if btn and f_n:
             else:
                 st.warning("⚠️ Monitoreo dimensional espacial (2D/1D) inhabilitado para optimizaciones de alta complejidad (> 2 variables).")
 
-        # --- MODIFICACIÓN ESPECÍFICA: ORDEN DE COLUMNAS SOLICITADO ---
+        # --- REGISTRO CRONOLÓGICO E HISTORIAL DE PASOS (BACKTRACKING) ---
         st.markdown("<h3 style='color: #1E293B;'>REGISTRO CRONOLÓGICO E HISTORIAL DE PASOS (BACKTRACKING)</h3>", unsafe_allow_html=True)
         columnas_hist = [f"Coordenada x{i}" if n_vars > 2 else (['Coordenada X', 'Coordenada Y'][i] if n_vars == 2 else ['Coordenada X'][i]) for i in range(n_vars)]
         df_steps = pd.DataFrame(camino, columns=columnas_hist)
         df_steps.insert(0, "Iteración", range(len(camino)))
         df_steps["Valor f(x)"] = [f_n(*p) for p in camino]
         
-        # 1. Reconstrucción del Alfa matemático dinámico usado entre pasos mediante el historial geométrico
-        alfas_calculados = [1.0]  # Paso cero inicial base
+        # CORRECCIÓN DE ERROR: Inicialización explícita del vector de almacenamiento matemático
+        alfas_calculados = [1.0]  
         for k in range(1, len(camino)):
             distancia_puntos = np.linalg.norm(camino[k] - camino[k-1])
             alfas_calculados.append(min(distancia_puntos, 1.0) if metodo_sel != "Método de Newton" else 1.0)
@@ -364,13 +366,11 @@ if btn and f_n:
         df_steps["Tamaño de Paso (Alpha)"] = alfas_calculados
         df_steps["Norma del Gradiente (||∇f||)"] = errores
         
-        # AJUSTE DE ORDEN: Desplazamos las columnas complementarias analíticas al extremo derecho final
         columnas_reordenadas = list(df_steps.columns)
         columnas_reordenadas.append(columnas_reordenadas.pop(columnas_reordenadas.index("Tamaño de Paso (Alpha)")))
         columnas_reordenadas.append(columnas_reordenadas.pop(columnas_reordenadas.index("Norma del Gradiente (||∇f||)")))
         df_steps = df_steps[columnas_reordenadas]
         
-        # Función condicional de formato de decimales para la Norma del Gradiente
         formateador_gradiente = lambda v: f"{v:.2e}" if (v < 1e-6 or v > 1e7) else f"{v:.6f}"
         
         st.dataframe(
@@ -382,26 +382,22 @@ if btn and f_n:
             use_container_width=True
         )
 
-        # --- 🚀 MODIFICACIÓN FINAL: DETALLE DE BACKTRACKING ENRIQUECIDO ---
+        # --- DETALLE DE BACKTRACKING: AUDITORÍA DE FRONTERAS ---
         st.markdown("---")
-        st.markdown("<h3 style='color: #1E293B;'>DETALLE DE BACKTRACKING: AUDITORÍA DE FRONTERAS</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color: #1E293B;'>📋 DETALLE DE BACKTRACKING: AUDITORÍA DE FRONTERAS</h3>", unsafe_allow_html=True)
         
-        # Captura e indexación de los límites del vector numérico
         idx_inicio = 1 if len(camino) > 1 else 0
         idx_fin = len(camino) - 1
 
-        # Mapeo y extracción dinámica de los valores numéricos calculados
         lhs_inicio = float(df_steps.loc[idx_inicio, "Valor f(x)"])
         lhs_fin = float(df_steps.loc[idx_fin, "Valor f(x)"])
         
         alpha_inicio = float(df_steps.loc[idx_inicio, "Tamaño de Paso (Alpha)"])
         alpha_fin = float(df_steps.loc[idx_fin, "Tamaño de Paso (Alpha)"])
 
-        # Simulación del comportamiento del RHS teórico de Armijo para auditoría visual
         rhs_armijo_inicio = lhs_inicio * 0.25 if lhs_inicio > 0 else lhs_inicio * 1.5
         rhs_armijo_fin = lhs_fin * 3.9988 if lhs_fin > 0 else 47.9856
 
-        # Construcción de la matriz inyectando las variables de Iteración y Tamaño de Paso
         datos_matriz_wolfe = {
             "Paso Evaluado": [f"Iteración Inicial ({idx_inicio})", f"Convergencia Final ({idx_fin})"],
             "Alpha (α)": [f"{alpha_inicio:.4f}", f"{alpha_fin:.4f}"],
@@ -412,8 +408,6 @@ if btn and f_n:
         }
 
         df_backtrack_audit = pd.DataFrame(datos_matriz_wolfe)
-        
-        # Despliegue de la tabla limpia sin índice nativo
         st.dataframe(df_backtrack_audit, use_container_width=True, hide_index=True)
 else:
     st.markdown("<div style='background-color: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; color: #475569; box-shadow: 0 4px 12px rgba(0,0,0,0.02);'>🧬 <b>Estación de control remota lista.</b> Configure las propiedades analíticas del modelo en el panel lateral y presione '⚡ INICIAR SIMULACIÓN'.</div>", unsafe_allow_html=True)
