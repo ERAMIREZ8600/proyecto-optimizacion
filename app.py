@@ -115,6 +115,16 @@ st.markdown("""
         border: 1px solid #E2E8F0;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
     }
+    
+    /* Nueva Card Estilizada para el ganador del Benchmarking */
+    .winner-card {
+        background: linear-gradient(135deg, #E3F2FD 0%, #C8E6C9 100%) !important;
+        border-left: 6px solid #2E7D32 !important;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #C8E6C9;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -274,7 +284,7 @@ if btn and f_n:
                 estado_diagnostico = "Estancamiento numérico detectado (Fenómeno de mal condicionamiento geométrico o zigzag agudo)."
                 accion_ingenieril = "Se sugiere cambiar inmediatamente a un algoritmo de segundo orden (Newton) o direcciones conjugadas para corregir la trayectoria ortogonal."
             else:
-                estado_diagnostico = "Convergencia limpia y asintótica. Las condiciones dinámicas de Wolfe sintonizaron la tasa de aprendizaje con éxito."
+                estado_diagnostico = "Convergencia limpia and asintótica. Las condiciones dinámicas de Wolfe sintonizaron la tasa de aprendizaje con éxito."
                 accion_ingenieril = "La tasa de convergencia actual cumple con los estándares óptimos para su despliegue en entornos de automatización operativa."
 
             st.markdown(f"""
@@ -416,5 +426,105 @@ if btn and f_n:
 
         df_backtrack_audit = pd.DataFrame(datos_matriz_wolfe)
         st.dataframe(df_backtrack_audit, use_container_width=True, hide_index=True)
+
+        # --- BENCHMARKING DE EFICIENCIA OPERATIVA MULTI-ALGORITMO ---
+        st.markdown("---")
+        st.markdown("<h3 style='color: #1E293B;'>📊 BENCHMARKING: COMPARATIVA DE EFICIENCIA OPERATIVA</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #64748B; font-size: 0.95em; margin-top: -10px;'>Análisis competitivo en tiempo real de los 3 métodos bajo las mismas condiciones de frontera iniciales.</p>", unsafe_allow_html=True)
+
+        lista_algoritmos = ["Descenso de Gradiente", "Método de Newton", "Gradiente Conjugado (FR)"]
+        resultados_bench = []
+
+        # Ejecución simultánea en segundo plano para poblar el DataFrame comparativo
+        for algoritmo in lista_algoritmos:
+            t_start_b = time.perf_counter()
+            x_opt_b, errores_b, camino_b, motivo_b = ejecutar_optimizacion(
+                algoritmo, f_n, g_n, h_n, x_init, tol_val, int(max_it), beta_val, sigma_val
+            )
+            t_end_b = time.perf_counter()
+            
+            tiempo_ms = (t_end_b - t_start_b) * 1000
+            iteraciones_netas = len(errores_b) - 1
+            
+            # --- MANEJO AVANZADO DE EXCEPCIONES PARA EL BENCHMARKING (EVITA NONE) ---
+            try:
+                if x_opt_b is not None and not any(np.isnan(x_opt_b)) and not any(np.isinf(x_opt_b)):
+                    val_opt_b = float(f_n(*x_opt_b))
+                else:
+                    val_opt_b = float(f_n(*camino_b[-1])) if len(camino_b) > 0 else 0.0
+            except Exception:
+                try:
+                    val_opt_b = float(f_n(*camino_b[-1])) if len(camino_b) > 0 else 0.0
+                except Exception:
+                    val_opt_b = float('inf')
+
+            try:
+                if len(camino_b) > 1 and camino_b[-1] is not None and camino_b[-2] is not None:
+                    dist_b = np.linalg.norm(camino_b[-1] - camino_b[-2])
+                    alpha_final_b = float(dist_b) if not np.isnan(dist_b) and not np.isinf(dist_b) else 0.0
+                else:
+                    alpha_final_b = 0.0
+            except Exception:
+                alpha_final_b = 0.0
+                
+            resultados_bench.append({
+                "Algoritmo": algoritmo,
+                "Iteraciones": iteraciones_netas,
+                "Valor Óptimo f(x*)": val_opt_b,
+                "Tiempo (ms)": tiempo_ms,
+                "Alpha Final": alpha_final_b,
+                "Estado": "Convergió" if ("Convergencia" in motivo_b or "Exitosa" in motivo_b) else "Límite/Divergió"
+            })
+
+        df_bench = pd.DataFrame(resultados_bench)
+
+        # Despliegue de la matriz con resaltado verde sobre los mínimos de rendimiento (Iteraciones y Tiempo)
+        st.dataframe(
+            df_bench.style.format({
+                "Valor Óptimo f(x*)": "{:.8f}",
+                "Tiempo (ms)": "{:.2f}",
+                "Alpha Final": "{:.4f}"
+            }).highlight_min(subset=["Iteraciones", "Tiempo (ms)"], color='#C8E6C9'),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # Determinación automatizada del ganador absoluto
+        df_validos = df_bench[df_bench["Estado"] == "Convergió"]
+        if not df_validos.empty:
+            idx_ganador = df_validos["Iteraciones"].idxmin()
+            ganador_nombre = df_bench.loc[idx_ganador, "Algoritmo"]
+            ganador_iteraciones = df_bench.loc[idx_ganador, "Iteraciones"]
+            ganador_tiempo = df_bench.loc[idx_ganador, "Tiempo (ms)"]
+        else:
+            idx_ganador = df_bench["Tiempo (ms)"].idxmin()
+            ganador_nombre = df_bench.loc[idx_ganador, "Algoritmo"]
+            ganador_iteraciones = df_bench.loc[idx_ganador, "Iteraciones"]
+            ganador_tiempo = df_bench.loc[idx_ganador, "Tiempo (ms)"]
+
+        # Renderizado de los paneles informativos de cierre
+        c_win, c_scale = st.columns([1, 1.8])
+        
+        with c_win:
+            st.markdown(f"""
+                <div class="winner-card" style="min-height: 180px; display: flex; flex-direction: column; justify-content: center;">
+                    <h4 style="color: #1B5E20; margin-top: 0; margin-bottom: 4px;">🏆 Algoritmo Más Eficiente</h4>
+                    <h2 style="color: #2E7D32; margin: 6px 0; font-size: 1.8em; font-weight: 700;">{ganador_nombre}</h2>
+                    <p style="margin: 0; font-size: 0.95em; color: #37474F;">
+                        Alcanzó el criterio de parada en un total neto de <b>{ganador_iteraciones} iteraciones</b> con un tiempo de cómputo de <b>{ganador_tiempo:.2f} ms</b>.
+                    </p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+        with c_scale:
+            complejidad_ganador = "O(n³)" if "Newton" in ganador_nombre else "O(n)"
+            st.markdown(f"""
+                <div class="valor-agregado-card" style="min-height: 180px;">
+                    <h4 style="color: #1A73E8; margin-top: 0; margin-bottom: 6px;">💡 Dictamen de Selección y Escalabilidad Industrial</h4>
+                    <p style="margin: 0; font-size: 0.92em; line-height: 1.45; color: #334155;">
+                        La analítica demuestra la dominancia local de <b>{ganador_nombre}</b> (Complejidad de operador: ${complejidad_ganador}$). Sin embargo, la regla de decisión en Ingeniería Civil de Procesos dicta que para topologías de <b>Alta Dimensión ($n > 1000$ variables)</b>, el método de <i>Gradiente Conjugado</i> es estructuralmente superior al no requerir almacenamiento ni inversión de operadores Hessianos, optimizando el uso de memoria RAM.
+                    </p>
+                </div>
+            """, unsafe_allow_html=True)
 else:
-    st.markdown("<div style='background-color: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; color: #475569; box-shadow: 0 4px 12px rgba(0,0,0,0.02);'>🧬 <b>Estación de control remota lista.</b> Configure las propiedades analíticas del modelo en el panel lateral y presione '⚡ INICIAR SIMULACIÓN'.</div>", unsafe_allow_html=True)
+    st.markdown("<div style='background-color: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; color: #475569; box-shadow: 0 4px 12px rgba(0,0,0,0.02);'>🧬 <b>Estación de control remota lista.</b> Configure las propiedades analíticas del modelo en el panel lateral and presione '⚡ INICIAR SIMULACIÓN'.</div>", unsafe_allow_html=True)
